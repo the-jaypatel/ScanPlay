@@ -42,11 +42,6 @@ export function AdminDashboard({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
-  const origin = React.useSyncExternalStore(
-    () => () => {},
-    () => (typeof window !== "undefined" ? window.location.origin : ""),
-    () => ""
-  );
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -226,7 +221,7 @@ export function AdminDashboard({
       }
 
       const createdRecord = dbInsertResult.data;
-      const fullPublicUrl = getPublicVideoUrl(publicId, origin);
+      const fullPublicUrl = getPublicVideoUrl(publicId);
 
       // Update state
       setVideos((prev) => [createdRecord, ...prev]);
@@ -412,7 +407,7 @@ export function AdminDashboard({
                 </button>
 
                 <a
-                  href={getPublicVideoPath(newlyUploadedVideo.publicId)}
+                  href={newlyUploadedVideo.publicUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
@@ -617,8 +612,7 @@ export function AdminDashboard({
             /* Video List Cards */
             <div className="space-y-4">
               {videos.map((video) => {
-                const publicUrl = getPublicVideoUrl(video.public_id, origin);
-                const publicPath = getPublicVideoPath(video.public_id);
+                const publicUrl = getPublicVideoUrl(video.public_id);
                 const formattedDate = new Date(video.created_at).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
@@ -671,7 +665,7 @@ export function AdminDashboard({
 
                       {/* Open Video */}
                       <a
-                        href={publicPath}
+                        href={publicUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"

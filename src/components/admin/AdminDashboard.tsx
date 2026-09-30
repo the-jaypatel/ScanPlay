@@ -22,6 +22,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { QrCodeModal } from "./QrCodeModal";
+import { VideoCompressionCard } from "./VideoCompressionCard";
 
 interface AdminDashboardProps {
   userEmail: string;
@@ -29,7 +30,7 @@ interface AdminDashboardProps {
   initialVideos: VideoRecord[];
 }
 
-const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB Hard Limit
 
 export function AdminDashboard({
   userEmail,
@@ -41,6 +42,7 @@ export function AdminDashboard({
 
   const [videos, setVideos] = useState<VideoRecord[]>(initialVideos);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [oversizedFile, setOversizedFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
@@ -81,6 +83,7 @@ export function AdminDashboard({
     const file = e.target.files?.[0];
     if (!file) {
       setSelectedFile(null);
+      setOversizedFile(null);
       return;
     }
 
@@ -88,18 +91,25 @@ export function AdminDashboard({
     if (!file.type.startsWith("video/") && !/\.(mp4|webm|mov|mkv|ogv|m4v)$/i.test(file.name)) {
       setUploadError("Only video files are supported. Please select a valid video format.");
       setSelectedFile(null);
+      setOversizedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    // Validation: File size limit (500 MB)
+    // Check file size: if > 50 MB, engage oversized video compression flow
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setUploadError("This video is larger than the maximum allowed size (500 MB).");
+      setOversizedFile(file);
       setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Autofill title with clean filename if title is currently empty
+      if (!title.trim()) {
+        const cleanName = file.name.replace(/\.[^/.]+$/, "").trim();
+        setTitle(cleanName.slice(0, 150));
+      }
       return;
     }
 
+    // Normal file <= 50 MB: proceed with standard upload flow
+    setOversizedFile(null);
     setSelectedFile(file);
     // Autofill title with clean filename if title is currently empty
     if (!title.trim()) {
@@ -110,6 +120,7 @@ export function AdminDashboard({
 
   const handleClearSelectedFile = () => {
     setSelectedFile(null);
+    setOversizedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -125,6 +136,12 @@ export function AdminDashboard({
 
     if (!selectedFile) {
       setUploadError("Please select a video file.");
+      return;
+    }
+
+    // Hard safety validation: NEVER allow an oversized original to reach Supabase
+    if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+      setUploadError("This video exceeds the 50 MB upload limit. Please compress it before uploading.");
       return;
     }
 
@@ -470,70 +487,86 @@ export function AdminDashboard({
           </div>
 
           <form onSubmit={handleUploadSubmit} className="space-y-6">
-            {/* File Drop / Selection Area */}
+            {/* File Drop / Selection Area or Oversized Video Compression Card */}
             <div>
               <label
                 htmlFor="video-file-input"
                 className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2"
               >
-                Video File <span className="text-zinc-500 font-normal">(Max 500 MB)</span>
+                Video File <span className="text-zinc-500 font-normal">(Max 50 MB)</span>
               </label>
 
-              <div className="relative rounded-2xl border-2 border-dashed border-zinc-800 bg-zinc-950/60 p-6 sm:p-8 text-center transition-colors hover:border-zinc-700 focus-within:border-zinc-500">
-                <input
-                  ref={fileInputRef}
-                  id="video-file-input"
-                  type="file"
-                  accept="video/*,.mp4,.webm,.mov,.mkv,.ogv"
-                  onChange={handleFileChange}
-                  disabled={isUploading}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                  aria-label="Choose video file"
+              {oversizedFile ? (
+                <VideoCompressionCard
+                  originalFile={oversizedFile}
+                  onUseCompressedFile={(compressedFile) => {
+                    setOversizedFile(null);
+                    setSelectedFile(compressedFile);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  onCancelOrChangeFile={() => {
+                    setOversizedFile(null);
+                    setSelectedFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
                 />
+              ) : (
+                <div className="relative rounded-2xl border-2 border-dashed border-zinc-800 bg-zinc-950/60 p-6 sm:p-8 text-center transition-colors hover:border-zinc-700 focus-within:border-zinc-500">
+                  <input
+                    ref={fileInputRef}
+                    id="video-file-input"
+                    type="file"
+                    accept="video/*,.mp4,.webm,.mov,.mkv,.ogv"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                    aria-label="Choose video file"
+                  />
 
-                {selectedFile ? (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 text-left min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-200">
-                        <FileVideo className="h-5 w-5" aria-hidden="true" />
+                  {selectedFile ? (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 text-left min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-200">
+                          <FileVideo className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-zinc-100 truncate max-w-xs sm:max-w-md">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-100 truncate max-w-xs sm:max-w-md">
-                          {selectedFile.name}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
-                        </p>
-                      </div>
-                    </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleClearSelectedFile();
-                      }}
-                      disabled={isUploading}
-                      className="relative z-10 inline-flex items-center justify-center min-h-[44px] gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-2 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Change File</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="pointer-events-none flex flex-col items-center justify-center py-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 mb-3">
-                      <UploadCloud className="h-6 w-6" aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleClearSelectedFile();
+                        }}
+                        disabled={isUploading}
+                        className="relative z-10 inline-flex items-center justify-center min-h-[44px] gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-2 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Change File</span>
+                      </button>
                     </div>
-                    <p className="text-sm font-medium text-zinc-200">
-                      Click to browse or drag and drop your video file
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      MP4, WebM, MOV up to 500 MB
-                    </p>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="pointer-events-none flex flex-col items-center justify-center py-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 mb-3">
+                        <UploadCloud className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      <p className="text-sm font-medium text-zinc-200">
+                        Click to browse or drag and drop your video file
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        MP4, WebM, MOV up to 50 MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Title & Description Fields */}

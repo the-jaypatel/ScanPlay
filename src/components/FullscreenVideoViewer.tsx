@@ -17,7 +17,8 @@ export function FullscreenVideoViewer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isMuted, setIsMuted] = useState(true);
+  // Default to audio enabled: muted is NOT the intended initial state
+  const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
 
@@ -51,31 +52,51 @@ export function FullscreenVideoViewer({
     () => false
   );
 
-  // Safe Autoplay attempt adhering strictly to browser autoplay policies (muted)
+  // Attempt autoplay with audio enabled first; gracefully fall back to muted autoplay if policy blocks it
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    video.muted = true;
+    // 1. First attempt: Autoplay with audio enabled
+    video.muted = false;
 
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise
+    const unmutedPlayPromise = video.play();
+    if (unmutedPlayPromise !== undefined) {
+      unmutedPlayPromise
         .then(() => {
+          // Autoplay with sound succeeded (browser allowed it)
           setIsPlaying(true);
+          setIsMuted(false);
         })
-        .catch((err: unknown) => {
-          // Autoplay was blocked by browser policy (e.g. user power saving or browser preference)
-          // Gracefully degrade: user can start playback via native controls
-          console.debug("Autoplay blocked by browser policy:", err);
-          setIsPlaying(false);
+        .catch((unmutedErr: unknown) => {
+          // Browser autoplay policy rejected unmuted playback without prior user interaction.
+          // Fall back gracefully to muted autoplay rather than breaking playback.
+          console.debug("Autoplay with audio blocked by browser policy, falling back to muted:", unmutedErr);
+          video.muted = true;
+          setIsMuted(true);
+
+          const mutedPlayPromise = video.play();
+          if (mutedPlayPromise !== undefined) {
+            mutedPlayPromise
+              .then(() => {
+                setIsPlaying(true);
+              })
+              .catch((mutedErr: unknown) => {
+                // Both unmuted and muted autoplay were blocked by user agent
+                console.debug("Muted autoplay also blocked:", mutedErr);
+                setIsPlaying(false);
+              });
+          }
         });
     }
   }, []);
 
-  // Auto-hide the subtle title overlay after 3 seconds of inactivity while playing
+  // Overlay visibility:
+  // - When playing with sound, auto-hides after 3 seconds of inactivity
+  // - When muted, keeps the overlay / sound control visible so visitor can easily enable sound
+  // - When paused, remains visible
   useEffect(() => {
-    if (!isPlaying) {
+    if (!isPlaying || isMuted) {
       return;
     }
 
@@ -86,7 +107,7 @@ export function FullscreenVideoViewer({
     return () => {
       clearTimeout(timer);
     };
-  }, [isPlaying]);
+  }, [isPlaying, isMuted]);
 
   // Handle user interaction to briefly show overlay
   const handleUserInteraction = () => {
@@ -94,7 +115,8 @@ export function FullscreenVideoViewer({
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
     }
-    if (isPlaying) {
+    // Only schedule auto-hide if playing and sound is active
+    if (isPlaying && !isMuted) {
       hideTimeoutRef.current = setTimeout(() => {
         setShowOverlay(false);
       }, 3000);
@@ -142,12 +164,11 @@ export function FullscreenVideoViewer({
         }
       }
     } catch (err: unknown) {
-      // Gracefully catch fullscreen rejections (e.g. denied by browser policy or security settings)
       console.debug("Fullscreen toggle was not permitted by browser:", err);
     }
   };
 
-  // Handle unmute user gesture
+  // Handle unmute/mute user gesture
   const handleToggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -155,7 +176,6 @@ export function FullscreenVideoViewer({
     if (video.muted) {
       video.muted = false;
       setIsMuted(false);
-      // If paused, ensure it continues playing
       if (video.paused) {
         video.play().catch(() => {});
       }
@@ -179,7 +199,7 @@ export function FullscreenVideoViewer({
         controls
         playsInline
         autoPlay
-        muted
+        muted={isMuted}
         preload="auto"
         onPlay={() => setIsPlaying(true)}
         onPause={() => {
@@ -209,18 +229,18 @@ export function FullscreenVideoViewer({
           <div />
         )}
 
-        {/* Action Controls (Unmute + Fullscreen) */}
+        {/* Action Controls (Sound Toggle + Fullscreen) */}
         <div className="pointer-events-auto flex items-center gap-2">
-          {/* Subtle Unmute Action (helpful when autoplay starts muted per browser requirements) */}
+          {/* Clearly visible control when video is muted so visitor can enable sound */}
           {isMuted && (
             <button
               type="button"
               onClick={handleToggleMute}
-              className="flex items-center gap-1.5 rounded-full bg-zinc-950/80 hover:bg-zinc-900 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-white border border-zinc-700/80 shadow-lg transition-colors cursor-pointer"
-              aria-label="Unmute audio"
+              className="flex items-center gap-1.5 rounded-full bg-zinc-950/90 hover:bg-zinc-900 backdrop-blur-md px-3.5 py-1.5 text-xs font-semibold text-white border border-zinc-700/80 shadow-lg transition-colors cursor-pointer"
+              aria-label="Enable sound"
             >
               <VolumeX className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
-              <span>Unmute</span>
+              <span>Enable Sound</span>
             </button>
           )}
 

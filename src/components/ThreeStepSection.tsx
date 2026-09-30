@@ -1,13 +1,22 @@
 import React from "react";
-import { UploadCloud, Link as LinkIcon, Share2 } from "lucide-react";
+import { UploadCloud, Link as LinkIcon, QrCode } from "lucide-react";
 
-const steps = [
+interface StepItem {
+  number: string;
+  title: string;
+  headline: string;
+  description: string;
+  note?: string;
+  icon: React.ElementType;
+}
+
+const steps: StepItem[] = [
   {
     number: "01",
     title: "Upload",
     headline: "Upload your video.",
-    description:
-      "Select your finished video file. ScanPlay hosts it with high fidelity and lightning-fast streaming without ads or algorithmic clutter.",
+    description: "Select your finished video file and upload it to ScanPlay.",
+    note: "Maximum file size: 50 MB.",
     icon: UploadCloud,
   },
   {
@@ -15,16 +24,16 @@ const steps = [
     title: "Get Your Link",
     headline: "ScanPlay creates a unique public video URL.",
     description:
-      "A permanent, private-by-default short link is generated for your video's dedicated guest viewing page (/v/[id]).",
+      "ScanPlay generates a unique shareable URL for your video. The URL opens a dedicated distraction-free video viewing page.",
     icon: LinkIcon,
   },
   {
     number: "03",
     title: "Share",
-    headline: "Copy the URL and use it anywhere.",
+    headline: "Share your video with a link or QR code.",
     description:
-      "Copy your link instantly. Share it in digital messages or paste it into an external QR-code generator for printed cards and stationery.",
-    icon: Share2,
+      "Copy your ScanPlay URL or generate a QR code directly from the Admin Dashboard. Download the QR code as a PNG and use it on digital or printed materials.",
+    icon: QrCode,
   },
 ];
 
@@ -47,7 +56,7 @@ export function ThreeStepSection() {
             How ScanPlay Works
           </h2>
           <p className="mt-4 text-base text-zinc-400">
-            A frictionless path from your video file to a shareable link in three straightforward steps.
+            A frictionless path from your video file to a shareable link and printable QR code in three straightforward steps.
           </p>
         </div>
 
@@ -76,6 +85,12 @@ export function ThreeStepSection() {
                   <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
                     {step.description}
                   </p>
+
+                  {step.note && (
+                    <p className="mt-2 text-xs font-medium text-zinc-500">
+                      {step.note}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-zinc-800/50">
@@ -88,11 +103,11 @@ export function ThreeStepSection() {
           })}
         </div>
 
-        {/* Explicit External QR Generator Notice */}
+        {/* Physical cards QR Notice */}
         <div className="mt-14 rounded-xl border border-zinc-800/70 bg-zinc-900/30 p-4 sm:p-5 text-center max-w-2xl mx-auto">
           <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
             <span className="font-semibold text-zinc-200">Using physical cards?</span>{" "}
-            ScanPlay generates the clean video destination link. To create printed codes for wedding or event cards, simply paste your ScanPlay URL into any external QR-code generator.
+            Generate a QR code directly from your ScanPlay video. Preview it, download it as a high-resolution PNG, and use it on invitations, event cards, stationery, or other printed materials.
           </p>
         </div>
       </div>

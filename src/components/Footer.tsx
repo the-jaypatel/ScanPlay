@@ -21,7 +21,7 @@ export function Footer() {
           </Link>
 
           <p className="text-xs text-center sm:text-right text-zinc-400 max-w-md leading-relaxed">
-            Direct video hosting and viewing URLs for digital sharing. Works seamlessly with any external QR code generator for physical media.
+            Direct video hosting, shareable viewing links, and built-in QR code generation for digital and physical sharing.
           </p>
         </div>
 

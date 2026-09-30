@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, Link2, Sparkles } from "lucide-react";
+import { ArrowRight, Link2, Sparkles, QrCode } from "lucide-react";
 
 export function Hero() {
   return (
@@ -25,7 +25,7 @@ export function Hero() {
 
         {/* Supporting text */}
         <p className="mt-5 text-base sm:text-xl md:text-2xl text-zinc-400 font-light max-w-2xl mx-auto leading-relaxed">
-          Upload your video. Get a shareable link. Use it anywhere.
+          Upload your video. Get a shareable link. Generate a QR code. Share it anywhere.
         </p>
 
         {/* Primary CTA */}
@@ -40,30 +40,39 @@ export function Hero() {
         </div>
 
         <p className="mt-3 text-xs text-zinc-500">
-          Admin-managed private video hosting with instant shareable links.
+          Admin-managed video hosting with instant shareable links and built-in QR code generation.
         </p>
 
-        {/* Clean URL mockup preview */}
+        {/* Visual Demonstration: Shareable Link & Built-in QR Code */}
         <div className="mt-12 sm:mt-16 mx-auto max-w-lg rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-4 sm:p-5 backdrop-blur-sm shadow-2xl">
           <div className="flex items-center justify-between text-xs text-zinc-500 mb-3 px-1">
             <span className="font-mono tracking-wider uppercase text-[10px] text-zinc-400">
-              Sample Public Video Link
+              Visual Demonstration &bull; Video Link &amp; QR
             </span>
             <span className="text-[11px] text-zinc-500">Distraction-free viewer</span>
           </div>
 
-          <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-left">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-zinc-300">
-              <Link2 className="h-4 w-4" aria-hidden="true" />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 sm:px-4 sm:py-3 text-left">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-zinc-300">
+                <Link2 className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-mono text-xs sm:text-sm text-zinc-200">
+                  https://scan-play-drab.vercel.app/v/[id]
+                </p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Dedicated guest viewing link
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-mono text-xs sm:text-sm text-zinc-200 break-anywhere">
-                https://scanplay.io/v/8Kx92Lm
-              </p>
+
+            <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/60 justify-end">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[11px] text-zinc-300">
+                <QrCode className="h-3 w-3 text-zinc-400" aria-hidden="true" />
+                <span>QR Ready</span>
+              </span>
             </div>
-            <span className="shrink-0 rounded-md bg-zinc-800/80 px-2.5 py-1 font-mono text-[11px] text-zinc-300">
-              Copy URL
-            </span>
           </div>
         </div>
       </div>

@@ -30,9 +30,9 @@ export function InvitationFocus() {
             <div className="flex items-start gap-3">
               <ShieldCheck className="h-5 w-5 text-zinc-300 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
-                <h3 className="text-sm font-semibold text-zinc-200">Private by Default</h3>
+                <h3 className="text-sm font-semibold text-zinc-200">Unlisted by Default</h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Only people with your unique URL can view your hosted video.
+                  Your video isn&apos;t publicly listed or searchable. Share the unique link with whoever you want to watch it.
                 </p>
               </div>
             </div>

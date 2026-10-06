@@ -42,7 +42,8 @@ declare module "mp4box" {
     description: unknown;
     is_rap: boolean;
     is_sync: boolean;
-    data: Uint8Array;
+    data?: Uint8Array;
+    alreadyRead?: number;
     size: number;
     offset?: number;
     dts: number;
@@ -72,6 +73,17 @@ declare module "mp4box" {
     writeUint16(val: number): void;
     writeUint32(val: number): void;
   }
+
+  export interface MP4BoxLog {
+    setLogLevel?: (level: number) => void;
+    debug?: (module: string, msg: string) => void;
+    log?: (module: string, msg: string) => void;
+    info?: (module: string, msg: string) => void;
+    warn?: (module: string, msg: string) => void;
+    error?: (module: string, msg: string, isofile?: unknown) => void;
+  }
+
+  export const Log: MP4BoxLog;
 
   export function createFile(): MP4BoxFile;
 }

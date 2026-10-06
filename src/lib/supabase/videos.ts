@@ -8,6 +8,16 @@ export interface PublishedVideoPlayback {
   playbackUrl: string;
 }
 
+export const DEMO_PUBLIC_ID = "demo";
+
+export const DEMO_VIDEO: PublicVideo = {
+  public_id: DEMO_PUBLIC_ID,
+  title: "ScanPlay Product Demo",
+  description: "Experience ScanPlay's distraction-free guest video player with direct playback.",
+  video_url: "/demo.mp4",
+  created_at: "2026-01-01T00:00:00Z",
+};
+
 /**
  * Retrieves public video metadata for /v/[id] guests.
  * Enforces security constraints:
@@ -18,6 +28,11 @@ export interface PublishedVideoPlayback {
 export async function getPublishedVideoByPublicId(
   publicId: string
 ): Promise<PublicVideo | null> {
+  // Safe bypass for the public demo video asset
+  if (publicId === DEMO_PUBLIC_ID) {
+    return DEMO_VIDEO;
+  }
+
   // Validate public_id format before querying
   if (!publicId || !/^[A-Za-z0-9_-]{5,32}$/.test(publicId)) {
     return null;
@@ -63,6 +78,14 @@ export async function getPublishedVideoPlayback(
   publicId: string,
   expiresInSeconds: number = 3600
 ): Promise<PublishedVideoPlayback | null> {
+  // Safe bypass for the public demo video asset
+  if (publicId === DEMO_PUBLIC_ID) {
+    return {
+      video: DEMO_VIDEO,
+      playbackUrl: "/demo.mp4",
+    };
+  }
+
   if (!publicId || !/^[A-Za-z0-9_-]{5,32}$/.test(publicId)) {
     return null;
   }

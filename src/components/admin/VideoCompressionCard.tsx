@@ -18,6 +18,7 @@ import {
   CompressionProgress,
   CompressionResult,
   CompressionTier,
+  COMPRESSION_TIERS,
   HARD_UPLOAD_LIMIT_BYTES,
 } from "@/lib/videoCompressor";
 
@@ -40,7 +41,7 @@ export function VideoCompressionCard({
   onCancelOrChangeFile,
 }: VideoCompressionCardProps) {
   const [state, setState] = useState<CompressionCardState>("idle");
-  const [currentTier, setCurrentTier] = useState<CompressionTier>("standard");
+  const [currentTier, setCurrentTier] = useState<CompressionTier>("basic");
   const [progress, setProgress] = useState<CompressionProgress>({
     percent: 0,
     stage: "analyzing",
@@ -214,14 +215,54 @@ export function VideoCompressionCard({
               The original {formatBytes(originalFile.size)} file will <strong>not</strong> be uploaded to the server.
             </p>
 
+            {/* Compression Tier Selector */}
+            <div className="pt-1">
+              <label className="block text-xs font-medium text-zinc-400 mb-2">
+                Compression Level
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {(Object.keys(COMPRESSION_TIERS) as CompressionTier[]).map((tierKey) => {
+                  const tierInfo = COMPRESSION_TIERS[tierKey];
+                  const isSelected = currentTier === tierKey;
+                  return (
+                    <button
+                      key={tierKey}
+                      type="button"
+                      onClick={() => setCurrentTier(tierKey)}
+                      className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-amber-400/80 bg-amber-400/10 text-white shadow-sm ring-1 ring-amber-400/50"
+                          : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-white">
+                          {tierInfo.label}
+                        </span>
+                        {isSelected && (
+                          <span className="h-2 w-2 rounded-full bg-amber-400" />
+                        )}
+                      </div>
+                      <span className="text-[11px] text-zinc-300 mt-1 font-medium">
+                        {tierInfo.description}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+                        Up to {tierInfo.maxH}p
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => handleStartCompression("standard")}
+                onClick={() => handleStartCompression(currentTier)}
                 className="inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-white px-5 py-2.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white cursor-pointer"
               >
                 <Zap className="h-4 w-4 fill-zinc-950" aria-hidden="true" />
-                <span>Compress Video</span>
+                <span>Compress Video ({COMPRESSION_TIERS[currentTier].label})</span>
               </button>
 
               <button
@@ -246,9 +287,14 @@ export function VideoCompressionCard({
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <Loader2 className="h-5 w-5 text-zinc-300 animate-spin" aria-hidden="true" />
-              <h3 className="text-base font-semibold text-white tracking-tight">
-                Compressing video locally...
-              </h3>
+              <div>
+                <h3 className="text-base font-semibold text-white tracking-tight">
+                  Compressing video locally...
+                </h3>
+                <span className="text-xs text-amber-400 font-mono">
+                  {COMPRESSION_TIERS[currentTier].label} Tier &bull; {COMPRESSION_TIERS[currentTier].description} (up to {COMPRESSION_TIERS[currentTier].maxH}p)
+                </span>
+              </div>
             </div>
             <span className="font-mono text-sm font-bold text-zinc-200">
               {progress.percent}%
@@ -297,7 +343,7 @@ export function VideoCompressionCard({
         <div className="space-y-5">
           <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-semibold uppercase tracking-wider">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            <span>Compression Complete</span>
+            <span>Compression Complete &bull; {COMPRESSION_TIERS[result.tierUsed]?.label ?? "Basic"} Tier</span>
           </div>
 
           <div>
@@ -363,9 +409,8 @@ export function VideoCompressionCard({
 
   // State 4: STILL OVERSIZED (Output is still > 50 MB)
   if (state === "still_oversized" && result) {
-    const nextTier: CompressionTier =
-      currentTier === "standard" ? "strong" : "maximum";
-    const canCompressFurther = currentTier !== "maximum";
+    const canTryMedium = currentTier === "basic";
+    const canTryStrong = currentTier === "basic" || currentTier === "medium";
 
     return (
       <div className="rounded-2xl border border-amber-900/70 bg-amber-950/30 p-6 sm:p-7 backdrop-blur-sm shadow-xl animate-in fade-in duration-200">
@@ -377,7 +422,7 @@ export function VideoCompressionCard({
 
           <div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Compression did not reduce the file below 50 MB
+              {COMPRESSION_TIERS[currentTier].label} compression did not reduce the file below 50 MB
             </h3>
             <p className="text-xs text-zinc-300 mt-1">
               Original: <strong>{formatBytes(result.originalSize)}</strong> &bull; Compressed:{" "}
@@ -386,26 +431,45 @@ export function VideoCompressionCard({
           </div>
 
           <div className="p-3.5 rounded-xl border border-amber-900/50 bg-zinc-950/70 text-xs text-zinc-400">
-            {canCompressFurther ? (
+            {canTryMedium ? (
               <p>
-                You can apply stronger compression (downscaling to {currentTier === "standard" ? "720p" : "480p"} and adjusting bitrate) to bring the file size under 50 MB.
+                Basic compression maintained maximum resolution. You can apply <strong>Medium compression (720p)</strong> or <strong>Strong compression (480p)</strong> to bring the file size under 50 MB.
+              </p>
+            ) : canTryStrong ? (
+              <p>
+                Medium compression was not enough. You can apply <strong>Strong compression (480p)</strong> to bring the file size under 50 MB.
               </p>
             ) : (
               <p>
-                Maximum compression was applied, but this video is too long or complex to fit under 50 MB. Please compress or trim it offline before uploading.
+                Strong compression (480p) was already applied, but this video is too long or complex to fit under 50 MB. Please compress or trim it offline before uploading.
               </p>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            {canCompressFurther && (
+            {canTryMedium && (
               <button
                 type="button"
-                onClick={() => handleStartCompression(nextTier)}
+                onClick={() => handleStartCompression("medium")}
                 className="inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-amber-400 hover:bg-amber-300 px-5 py-2.5 text-xs font-semibold text-zinc-950 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
               >
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                <span>Try Stronger Compression ({nextTier === "strong" ? "720p" : "480p"})</span>
+                <span>Try Medium Compression (720p)</span>
+              </button>
+            )}
+
+            {canTryStrong && (
+              <button
+                type="button"
+                onClick={() => handleStartCompression("strong")}
+                className={`inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl px-5 py-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 cursor-pointer ${
+                  canTryMedium
+                    ? "border border-amber-500/50 bg-zinc-900 text-amber-300 hover:bg-zinc-800 focus-visible:ring-amber-400"
+                    : "bg-amber-400 hover:bg-amber-300 text-zinc-950 focus-visible:ring-amber-400"
+                }`}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                <span>Try Strong Compression (480p)</span>
               </button>
             )}
 

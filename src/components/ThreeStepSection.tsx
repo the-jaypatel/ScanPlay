@@ -13,9 +13,9 @@ interface StepItem {
 const steps: StepItem[] = [
   {
     number: "01",
-    title: "Upload",
-    headline: "Upload your video.",
-    description: "Select your finished video file and upload it to ScanPlay.",
+    title: "Admin Upload",
+    headline: "Upload via Admin Dashboard.",
+    description: "Sign in to the Admin Dashboard, select your video file, and upload it securely.",
     note: "Maximum file size: 50 MB.",
     icon: UploadCloud,
   },

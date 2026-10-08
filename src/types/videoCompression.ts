@@ -54,11 +54,41 @@ export interface WorkerSuccessMessage {
   buffer: ArrayBuffer;
 }
 
+export interface CompressionDiagnostic {
+  stage: string;
+  runtime: "worker" | "main-thread" | "unknown";
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  videoCodec?: string;
+  audioCodec?: string;
+  srcWidth?: number;
+  srcHeight?: number;
+  targetWidth?: number;
+  targetHeight?: number;
+  duration?: number;
+  rotation?: number;
+  userAgent?: string;
+  decoderConfigSupported?: boolean;
+  encoderConfigSupported?: boolean;
+  selectedEncoderCodec?: string;
+  canvasType?: string;
+  framesDecoded?: number;
+  framesEncoded?: number;
+  errorName?: string;
+  errorMessage?: string;
+  errorStack?: string;
+  errorCause?: string;
+  logs: string[];
+}
+
 export interface WorkerErrorMessage {
   type: "error";
   error: {
     name: string;
     message: string;
+    stack?: string;
+    diagnostic?: CompressionDiagnostic;
   };
 }
 

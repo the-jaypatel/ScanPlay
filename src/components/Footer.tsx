@@ -6,36 +6,52 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-zinc-900 bg-zinc-950 py-12 text-zinc-500">
+    <footer className="mt-auto border-t border-zinc-900 bg-zinc-950 py-16 text-zinc-500">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 py-1"
-            aria-label="ScanPlay Home"
-          >
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-950">
-              <Play className="h-3 w-3 fill-zinc-950 ml-0.5" aria-hidden="true" />
-            </div>
-            <span className="font-semibold text-white tracking-tight">ScanPlay</span>
-          </Link>
-
-          <p className="text-xs text-center sm:text-right text-zinc-400 max-w-md leading-relaxed">
-            Direct video hosting, shareable viewing links, and built-in QR code generation for digital and physical sharing.
-          </p>
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-600">
-          <p>&copy; {currentYear} ScanPlay. All rights reserved.</p>
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+          <div>
             <Link
-              href="/admin"
-              className="hover:text-zinc-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 rounded-sm py-1"
+              href="/"
+              className="flex items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 py-1"
+              aria-label="ScanPlay Home"
             >
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-zinc-950">
+                <Play className="h-3 w-3 fill-zinc-950 ml-0.5" aria-hidden="true" />
+              </div>
+              <span className="font-bold text-white tracking-tight">ScanPlay</span>
+            </Link>
+            <p className="mt-2 text-xs text-zinc-400 max-w-sm leading-relaxed">
+              Distraction-free video hosting and playback for invitations, celebrations, and personal milestones.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-zinc-400">
+            <a href="#how-it-works" className="hover:text-white transition-colors py-1">
+              How It Works
+            </a>
+            <a href="#moments" className="hover:text-white transition-colors py-1">
+              Moments
+            </a>
+            <a href="#guest-experience" className="hover:text-white transition-colors py-1">
+              Guest Experience
+            </a>
+            <a href="#demo" className="hover:text-white transition-colors py-1">
+              Live Demo
+            </a>
+            <Link href="/v/demo" className="hover:text-white transition-colors py-1">
+              Fullscreen Viewer
+            </Link>
+            <Link href="/admin" className="hover:text-white transition-colors py-1">
               Admin Portal
             </Link>
-            <span>&bull;</span>
-            <span className="font-mono text-[11px] text-zinc-600">Direct Video Hosting</span>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-8 border-t border-zinc-900/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400">
+          <p>&copy; {currentYear} ScanPlay. All rights reserved.</p>
+          <div className="flex items-center gap-3">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="font-mono text-[11px] text-zinc-400">Upload once. Share anywhere.</span>
           </div>
         </div>
       </div>

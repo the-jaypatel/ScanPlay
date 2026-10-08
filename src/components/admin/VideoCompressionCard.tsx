@@ -500,9 +500,15 @@ export function VideoCompressionCard({
               ScanPlay could not compress this video on this device. Your original file has not been uploaded.
             </p>
             {errorMessage && (
-              <p className="font-mono text-xs text-zinc-400 mt-2 p-2 rounded bg-zinc-950/60 border border-zinc-800 break-words">
-                {errorMessage}
-              </p>
+              <div className="space-y-2 mt-2">
+                <p className="font-mono text-xs text-zinc-400 p-2 rounded bg-zinc-950/60 border border-zinc-800 break-words">
+                  {errorMessage}
+                </p>
+                <div className="font-mono text-[11px] text-zinc-500 p-2 rounded bg-zinc-950/40 border border-zinc-900 space-y-0.5">
+                  <div>VideoEncoder: {typeof globalThis.VideoEncoder} | VideoDecoder: {typeof globalThis.VideoDecoder}</div>
+                  <div>AudioEncoder: {typeof (globalThis as unknown as Record<string, unknown>).AudioEncoder} | EncodedAudioChunk: {typeof (globalThis as unknown as Record<string, unknown>).EncodedAudioChunk}</div>
+                </div>
+              </div>
             )}
           </div>
 

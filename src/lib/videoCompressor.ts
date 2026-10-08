@@ -82,17 +82,27 @@ export async function compressVideo(
     try {
       return await compressVideoInWorker(file, options);
     } catch (err) {
-      // If the worker threw an AbortError or a legitimate pipeline error (unsupported audio, invalid container, etc.), rethrow immediately!
-      // Only fall back to direct execution if the Web Worker failed to instantiate.
+      // If the compression was cancelled by the user, rethrow immediately
       if (
-        err instanceof Error &&
-        (err.name === "AbortError" ||
-          !err.message.includes("Failed to instantiate compression Web Worker"))
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error &&
+          (err.name === "AbortError" || err.message.toLowerCase().includes("cancel")))
       ) {
         throw err;
       }
+
+      // If it is an explicit container format or unsupported audio codec error,
+      // it would fail identically on the main thread, so rethrow immediately.
+      if (
+        err instanceof Error &&
+        (err.message.includes("Browser-side compression currently supports MP4 and MOV") ||
+          err.message.includes("is not supported for in-browser compression"))
+      ) {
+        throw err;
+      }
+
       console.warn(
-        "Worker compression failed to instantiate, falling back to main-thread compression:",
+        "[ScanPlay Compressor] Dedicated Web Worker execution encountered an error; falling back to direct main-thread compression:",
         err
       );
       return await compressVideoDirect(file, options);

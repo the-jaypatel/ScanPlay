@@ -222,8 +222,14 @@ ScanPlay/
 │   │   ├── FullscreenVideoViewer.tsx   # Distraction-free guest video player
 │   │   ├── Header.tsx                  # Navigation bar
 │   │   ├── Hero.tsx                    # Landing hero section
-│   │   ├── PublicDemoCard.tsx          # Homepage interactive demo & QR showcase
-│   │   └── ThreeStepSection.tsx        # Visual 3-step explainer
+│   │   ├── ProductShowcase.tsx         # Dedicated video page browser preview
+│   │   ├── HowItWorks.tsx              # Progressive 3-step workflow
+│   │   ├── MadeForMoments.tsx          # Invitation use-cases & platform comparison
+│   │   ├── GuestExperience.tsx         # Audio-first, one-tap guest viewing pillars
+│   │   ├── InteractiveDemoSection.tsx  # Framed interactive demo showcase
+│   │   ├── PublicDemoCard.tsx          # Interactive demo video & live QR card
+│   │   ├── FinalCTA.tsx                # Closing call to action
+│   │   └── Footer.tsx                  # Brand footer
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── admin.ts            # Server-only service role client

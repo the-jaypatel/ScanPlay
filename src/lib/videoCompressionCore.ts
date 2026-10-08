@@ -174,6 +174,24 @@ export function calculateTargetDimensions(
   return { width: targetWidth, height: targetHeight };
 }
 
+/**
+ * Extracts the video rotation in degrees (0, 90, 180, 270) from the MP4 track matrix.
+ * iPhone portrait videos are physically recorded landscape and rotated 90 or 270 degrees via matrix.
+ */
+export function getTrackRotation(
+  matrix?: number[] | Int32Array | null
+): 0 | 90 | 180 | 270 {
+  if (!matrix || matrix.length < 5) return 0;
+  const a = matrix[0] / 65536;
+  const b = matrix[1] / 65536;
+  const angle = Math.round(Math.atan2(b, a) * (180 / Math.PI));
+  const normalized = ((angle % 360) + 360) % 360;
+  if (normalized === 90) return 90;
+  if (normalized === 180) return 180;
+  if (normalized === 270) return 270;
+  return 0;
+}
+
 interface MP4BoxEntryBox {
   write: (stream: MP4Box.DataStream) => void;
 }
@@ -385,6 +403,32 @@ export async function executeCompressionPipeline(
         }
       }
 
+      // Also inspect otherTracks for non-standard QuickTime audio streams (e.g. LPCM, sowt, twos, apac)
+      if (!hasAudio && info.otherTracks && info.otherTracks.length > 0) {
+        for (const ot of info.otherTracks) {
+          const trak = mp4boxFile.getTrackById(ot.id) as { mdia?: { hdlr?: { handler?: string } } } | undefined;
+          const isAudioHandler = ot.type === "audio" || trak?.mdia?.hdlr?.handler === "soun";
+          const otCodec = (ot.codec || "").toLowerCase();
+          const isAudioCodec =
+            otCodec.startsWith("lpcm") ||
+            otCodec.startsWith("sowt") ||
+            otCodec.startsWith("twos") ||
+            otCodec.startsWith("in24") ||
+            otCodec.startsWith("in32") ||
+            otCodec.startsWith("alac") ||
+            otCodec.startsWith("apac") ||
+            otCodec.startsWith("ac-3") ||
+            otCodec.startsWith("ec-3") ||
+            otCodec.startsWith("dts");
+
+          if (isAudioHandler || isAudioCodec) {
+            hasAudio = true;
+            incompatibleCodec = ot.codec || "LPCM";
+            break;
+          }
+        }
+      }
+
       mp4boxFile.setExtractionOptions(vTrack.id, null, { nbSamples: 1000 });
       if (audioTrack) {
         mp4boxFile.setExtractionOptions(audioTrack.id, null, { nbSamples: 1000 });
@@ -512,38 +556,76 @@ export async function executeCompressionPipeline(
   let targetBitrate = Math.floor((availableVideoBits / durationSec) * bitrateFactor);
   targetBitrate = Math.max(minBitrate, Math.min(targetBitrate, maxBitrate));
 
-  // Step 4: Configure WebCodecs VideoEncoder
-  let selectedCodec = "avc1.4d002a";
-  let hardwarePreference: HardwareAcceleration = "prefer-hardware";
+  // Extract track rotation (for portrait/rotated iPhone videos)
+  const trakInternal = mp4boxFile.getTrackById(videoTrack.id) as
+    | (MP4BoxTrackInternal & { tkhd?: { matrix?: number[] | Int32Array }; samples?: MP4Box.MP4Sample[] })
+    | undefined;
+  const rawMatrix = videoTrack.matrix || trakInternal?.tkhd?.matrix;
+  const rotation = getTrackRotation(rawMatrix);
 
-  try {
-    const hwCheck = await VideoEncoder.isConfigSupported({
-      codec: selectedCodec,
-      width: targetWidth,
-      height: targetHeight,
-      bitrate: targetBitrate,
-      hardwareAcceleration: "prefer-hardware",
-    });
-    if (hwCheck.supported) {
-      hardwarePreference = "prefer-hardware";
-    } else {
-      const swCheck = await VideoEncoder.isConfigSupported({
-        codec: selectedCodec,
-        width: targetWidth,
-        height: targetHeight,
-        bitrate: targetBitrate,
-        hardwareAcceleration: "prefer-software",
-      });
-      if (swCheck.supported) {
-        hardwarePreference = "prefer-software";
-      } else {
-        selectedCodec = "avc1.42001f";
-        hardwarePreference = "no-preference";
-      }
+  // Step 4: Configure WebCodecs VideoEncoder
+  // Select an H.264 profile & level appropriate for the target resolution
+  const maxDim = Math.max(targetWidth, targetHeight);
+  const candidateCodecs: string[] = [];
+
+  if (maxDim > 1280) {
+    // 1080p+ requires H.264 Level 4.0 or above
+    candidateCodecs.push(
+      "avc1.4d002a", // Main Profile, Level 4.2
+      "avc1.64002a", // High Profile, Level 4.2
+      "avc1.4d0028", // Main Profile, Level 4.0
+      "avc1.640028", // High Profile, Level 4.0
+      "avc1.42002a", // Baseline Profile, Level 4.2
+      "avc1.420028"  // Baseline Profile, Level 4.0
+    );
+  } else if (maxDim > 854) {
+    // 720p requires H.264 Level 3.1 or above
+    candidateCodecs.push(
+      "avc1.4d001f", // Main Profile, Level 3.1
+      "avc1.42001f", // Baseline Profile, Level 3.1
+      "avc1.4d002a", // Main Profile, Level 4.2
+      "avc1.640028"  // High Profile, Level 4.0
+    );
+  } else {
+    // 480p requires H.264 Level 3.0 or above
+    candidateCodecs.push(
+      "avc1.4d001e", // Main Profile, Level 3.0
+      "avc1.42001e", // Baseline Profile, Level 3.0
+      "avc1.4d001f", // Main Profile, Level 3.1
+      "avc1.42001f", // Baseline Profile, Level 3.1
+      "avc1.4d002a"  // Main Profile, Level 4.2
+    );
+  }
+
+  let selectedCodec = candidateCodecs[0];
+  let hardwarePreference: HardwareAcceleration = "prefer-hardware";
+  let encoderConfigFound = false;
+
+  const accelPreferences: HardwareAcceleration[] = [
+    "prefer-hardware",
+    "no-preference",
+    "prefer-software",
+  ];
+
+  for (const codec of candidateCodecs) {
+    for (const accel of accelPreferences) {
+      try {
+        const support = await VideoEncoder.isConfigSupported({
+          codec,
+          width: targetWidth,
+          height: targetHeight,
+          bitrate: targetBitrate,
+          hardwareAcceleration: accel,
+        });
+        if (support.supported) {
+          selectedCodec = codec;
+          hardwarePreference = accel;
+          encoderConfigFound = true;
+          break;
+        }
+      } catch {}
     }
-  } catch {
-    selectedCodec = "avc1.42001f";
-    hardwarePreference = "no-preference";
+    if (encoderConfigFound) break;
   }
 
   const muxerTarget = new ArrayBufferTarget();
@@ -554,6 +636,7 @@ export async function executeCompressionPipeline(
       codec: "avc",
       width: targetWidth,
       height: targetHeight,
+      rotation,
     },
     audio: shouldIncludeAudio
       ? {
@@ -566,15 +649,26 @@ export async function executeCompressionPipeline(
     firstTimestampBehavior: "offset",
   });
 
-  const needsRescale = targetWidth !== srcWidth || targetHeight !== srcHeight;
+  const is10BitOrHdr =
+    videoTrack.codec.toLowerCase().includes("hvc1.2") ||
+    videoTrack.codec.toLowerCase().includes("hev1.2");
+  const needsRescale =
+    targetWidth !== srcWidth || targetHeight !== srcHeight || is10BitOrHdr;
   let canvas: OffscreenCanvas | HTMLCanvasElement | null = null;
   let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null = null;
 
   if (needsRescale) {
     if (typeof OffscreenCanvas !== "undefined") {
-      canvas = new OffscreenCanvas(targetWidth, targetHeight);
-      ctx = canvas.getContext("2d");
-    } else if (typeof document !== "undefined") {
+      try {
+        const offCanvas = new OffscreenCanvas(targetWidth, targetHeight);
+        const offCtx = offCanvas.getContext("2d");
+        if (offCtx) {
+          canvas = offCanvas;
+          ctx = offCtx;
+        }
+      } catch {}
+    }
+    if (!ctx && typeof document !== "undefined") {
       const el = document.createElement("canvas");
       el.width = targetWidth;
       el.height = targetHeight;
@@ -722,13 +816,66 @@ export async function executeCompressionPipeline(
       description: decoderDescription,
     };
 
-    const decoderSupportCheck = await VideoDecoder.isConfigSupported(decoderConfig);
-    if (!decoderSupportCheck.supported) {
+    let decoderSupported = false;
+    try {
+      const check = await VideoDecoder.isConfigSupported(decoderConfig);
+      decoderSupported = Boolean(check.supported);
+    } catch {}
+
+    // Fallback 1: Test without description if config with description was rejected
+    if (!decoderSupported && decoderDescription) {
+      try {
+        const noDescCheck = await VideoDecoder.isConfigSupported({
+          codec: decoderConfig.codec,
+          codedWidth: srcWidth,
+          codedHeight: srcHeight,
+        });
+        if (noDescCheck.supported) {
+          delete decoderConfig.description;
+          decoderSupported = true;
+        }
+      } catch {}
+    }
+
+    // Fallback 2: Normalize hev1 to hvc1 (some browsers only accept hvc1)
+    if (!decoderSupported && decoderConfig.codec.startsWith("hev1")) {
+      const hvcCodec = decoderConfig.codec.replace(/^hev1/, "hvc1");
+      try {
+        const hvcCheck = await VideoDecoder.isConfigSupported({
+          ...decoderConfig,
+          codec: hvcCodec,
+        });
+        if (hvcCheck.supported) {
+          decoderConfig.codec = hvcCodec;
+          decoderSupported = true;
+        }
+      } catch {}
+    }
+
+    if (!decoderSupported) {
+      const isHevc =
+        videoTrack.codec.toLowerCase().startsWith("hvc") ||
+        videoTrack.codec.toLowerCase().startsWith("hev");
+      if (isHevc) {
+        throw new Error(
+          `Your device or browser does not have hardware HEVC/H.265 video decoding support. This iPhone video requires HEVC decoding. Please use Google Chrome on a supported device or convert the video to standard H.264 MP4 before uploading.`
+        );
+      }
       throw new Error(
         `Your browser's video decoder does not support this video's codec (${videoTrack.codec}). Please compress or convert it prior to uploading.`
       );
     }
-    videoDecoder.configure(decoderConfig);
+
+    try {
+      videoDecoder.configure(decoderConfig);
+    } catch (cfgErr) {
+      if (decoderConfig.description) {
+        delete decoderConfig.description;
+        videoDecoder.configure(decoderConfig);
+      } else {
+        throw cfgErr;
+      }
+    }
 
     console.log("[ScanPlay Compressor] Transcoding plan:", {
       sourceCodec: videoTrack.codec,
@@ -756,13 +903,25 @@ export async function executeCompressionPipeline(
         const data = await fileReader.getSampleBytes(sample);
         if (signal?.aborted || isCancelled) break;
 
-        const audioChunk = new EncodedAudioChunk({
-          type: sample.is_sync ? "key" : "delta",
-          timestamp: Math.round((sample.cts * 1_000_000) / (audioTrack.timescale || 1)),
-          duration: Math.round((sample.duration * 1_000_000) / (audioTrack.timescale || 1)),
-          data,
-        });
-        muxer.addAudioChunk(audioChunk);
+        const timestamp = Math.round((sample.cts * 1_000_000) / (audioTrack.timescale || 1));
+        const duration = Math.round((sample.duration * 1_000_000) / (audioTrack.timescale || 1));
+        const chunkType: "key" | "delta" = sample.is_sync ? "key" : "delta";
+
+        if (typeof muxer.addAudioChunkRaw === "function") {
+          muxer.addAudioChunkRaw(data, chunkType, timestamp, duration);
+        } else if (typeof globalThis.EncodedAudioChunk !== "undefined") {
+          const audioChunk = new globalThis.EncodedAudioChunk({
+            type: chunkType,
+            timestamp,
+            duration,
+            data,
+          });
+          muxer.addAudioChunk(audioChunk);
+        } else {
+          throw new Error(
+            "Unable to mux audio: neither addAudioChunkRaw nor EncodedAudioChunk is available in this browser."
+          );
+        }
         audioChunksAdded++;
       }
 
@@ -911,8 +1070,8 @@ export async function executeCompressionPipeline(
     reductionPercentage,
     savedBytes,
     durationSeconds: durationSec,
-    width: targetWidth,
-    height: targetHeight,
+    width: rotation === 90 || rotation === 270 ? targetHeight : targetWidth,
+    height: rotation === 90 || rotation === 270 ? targetWidth : targetHeight,
     tierUsed: tierConfig.tier,
   };
 }

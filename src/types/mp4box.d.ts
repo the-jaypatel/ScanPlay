@@ -16,6 +16,8 @@ declare module "mp4box" {
       channel_count: number;
       sample_size?: number;
     };
+    matrix?: Int32Array | number[];
+    type?: string;
     video?: {
       width: number;
       height: number;
@@ -35,6 +37,7 @@ declare module "mp4box" {
     audioTracks: MP4Track[];
     videoTracks: MP4Track[];
     subtitleTracks: MP4Track[];
+    otherTracks?: MP4Track[];
   }
 
   export interface MP4Sample {
